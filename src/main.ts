@@ -3,7 +3,7 @@ import { AppModule } from './app.module';
 import { Registry } from 'prom-client';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { cors: true });
 
   // Metrics endpoint
   const registry = new Registry();
@@ -12,6 +12,8 @@ async function bootstrap() {
     res.send(await registry.metrics());
   });
 
-  await app.listen(3000);
+  await app.init();
+  return app.getHttpAdapter().getInstance();
 }
-bootstrap();
+
+export default bootstrap;
