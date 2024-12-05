@@ -5,10 +5,14 @@ import { DatabaseModule } from './database/database.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { CacheModule } from './cache/cache.module';
 import { UsersModule } from './users/users.module';
+import { ConfigValidator } from './config/config.validator';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: ConfigValidator.validate,
+    }),
     AuthModule,
     DatabaseModule,
     MetricsModule,
