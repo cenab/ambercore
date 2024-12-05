@@ -12,6 +12,10 @@ import { ConfigValidator } from './config/config.validator';
     ConfigModule.forRoot({
       isGlobal: true,
       validate: ConfigValidator.validate,
+      validationOptions: {
+        allowUnknown: true,
+        abortEarly: true,
+      },
     }),
     AuthModule,
     DatabaseModule,

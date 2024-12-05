@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class ConfigValidator {
-  static validate() {
+  static validate(config: Record<string, any>): Record<string, any> {
     const requiredEnvVars = [
       'SUPABASE_URL',
       'SUPABASE_SERVICE_KEY',
@@ -10,7 +10,7 @@ export class ConfigValidator {
     ];
 
     const missingEnvVars = requiredEnvVars.filter(
-      (envVar) => !process.env[envVar],
+      (envVar) => !process.env[envVar] && !config[envVar],
     );
 
     if (missingEnvVars.length > 0) {
@@ -18,5 +18,7 @@ export class ConfigValidator {
         `Missing required environment variables: ${missingEnvVars.join(', ')}`,
       );
     }
+
+    return config;
   }
 } 
