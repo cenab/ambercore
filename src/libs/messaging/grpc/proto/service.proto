@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package ambercore;
+
+service UserService {
+  rpc GetUser (GetUserRequest) returns (User) {}
+  rpc ListUsers (ListUsersRequest) returns (ListUsersResponse) {}
+  rpc CreateUser (CreateUserRequest) returns (User) {}
+  rpc UpdateUser (UpdateUserRequest) returns (User) {}
+  rpc DeleteUser (DeleteUserRequest) returns (DeleteUserResponse) {}
+  rpc WatchUserUpdates (WatchUserRequest) returns (stream UserUpdate) {}
+}
+
+message GetUserRequest {
+  string id = 1;
+}
+
+message ListUsersRequest {
+  int32 page = 1;
+  int32 limit = 2;
+}
+
+message ListUsersResponse {
+  repeated User users = 1;
+  int32 total = 2;
+}
+
+message CreateUserRequest {
+  string email = 1;
+  string name = 2;
+  map<string, string> metadata = 3;
+}
+
+message UpdateUserRequest {
+  string id = 1;
+  optional string email = 2;
+  optional string name = 3;
+  map<string, string> metadata = 4;
+}
+
+message DeleteUserRequest {
+  string id = 1;
+}
+
+message DeleteUserResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message WatchUserRequest {
+  string id = 1;
+}
+
+message UserUpdate {
+  string id = 1;
+  string type = 2;
+  User user = 3;
+  string timestamp = 4;
+}
+
+message User {
+  string id = 1;
+  string email = 2;
+  string name = 3;
+  map<string, string> metadata = 4;
+  string created_at = 5;
+  string updated_at = 6;
+} 
