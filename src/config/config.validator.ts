@@ -1,4 +1,4 @@
-import { plainToClass, Transform } from 'class-transformer';
+import { plainToClass, Type } from 'class-transformer';
 import { IsString, IsNotEmpty, IsEnum, validateSync } from 'class-validator';
 
 enum Environment {
@@ -10,22 +10,26 @@ enum Environment {
 export class EnvironmentVariables {
   @IsString()
   @IsNotEmpty()
+  @Type(() => String)
   SUPABASE_URL!: string;
 
   @IsString()
   @IsNotEmpty()
+  @Type(() => String)
   SUPABASE_SERVICE_KEY!: string;
 
   @IsString()
   @IsNotEmpty()
+  @Type(() => String)
   REDIS_URL!: string;
 
   @IsEnum(Environment)
-  @Transform(({ value }) => value as Environment)
+  @Type(() => String)
   NODE_ENV!: Environment;
 
   @IsString()
   @IsNotEmpty()
+  @Type(() => String)
   SUPABASE_JWT_SECRET!: string;
 }
 

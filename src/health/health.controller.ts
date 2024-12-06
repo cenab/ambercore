@@ -1,9 +1,15 @@
 import { Controller, Get } from '@nestjs/common';
 
+interface HealthCheck {
+  status: string;
+  timestamp: string;
+  environment: string;
+}
+
 @Controller()
 export class HealthController {
   @Get('/')
-  healthCheck(): { status: string; timestamp: string; environment: string } {
+  healthCheck(): HealthCheck {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
