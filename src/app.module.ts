@@ -5,6 +5,7 @@ import { DatabaseModule } from './database/database.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { CacheModule } from './cache/cache.module';
 import { UsersModule } from './users/users.module';
+import { HealthModule } from './health/health.module';
 import { validate } from './config/config.validator';
 
 @Module({
@@ -18,6 +19,7 @@ import { validate } from './config/config.validator';
     MetricsModule,
     CacheModule,
     UsersModule,
+    HealthModule,
   ],
 })
 export class AppModule {}
