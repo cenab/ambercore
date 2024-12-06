@@ -14,19 +14,23 @@ export class DatabaseService implements OnModuleInit {
       throw new Error('Missing Supabase configuration');
     }
 
-    // Validate URL format
     try {
       new URL(supabaseUrl);
     } catch (error) {
       throw new Error(`Invalid Supabase URL: ${supabaseUrl} ${error}`);
     }
 
-    this.supabase = createClient(supabaseUrl, supabaseKey);
+    this.supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: false,
+      },
+    });
   }
 
   async onModuleInit() {
     try {
-      await this.supabase.from('your_table').select('*').limit(1);
+      const { error } = await this.supabase.auth.getSession();
+      if (error) throw error;
       console.log('Supabase connection successful');
     } catch (error) {
       console.error('Supabase connection failed:', error);

@@ -6,7 +6,11 @@ export class CacheService implements OnModuleDestroy {
   private readonly redis: Redis;
 
   constructor() {
-    this.redis = new Redis(process.env.REDIS_URL);
+    this.redis = new Redis(process.env.REDIS_URL, {
+      maxRetriesPerRequest: 1,
+      connectTimeout: 500,
+      enableReadyCheck: false,
+    });
   }
 
   async get(key: string): Promise<string | null> {
@@ -23,14 +27,5 @@ export class CacheService implements OnModuleDestroy {
 
   async onModuleDestroy() {
     await this.redis.quit();
-  }
-
-  async checkConnection() {
-    try {
-      await this.redis.ping();
-      console.log('Redis connection successful');
-    } catch (error) {
-      console.error('Redis connection failed:', error);
-    }
   }
 }
