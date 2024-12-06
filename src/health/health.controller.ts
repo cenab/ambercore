@@ -6,9 +6,9 @@ interface HealthCheck {
   environment: string;
 }
 
-@Controller()
+@Controller('health')
 export class HealthController {
-  @Get('/')
+  @Get()
   healthCheck(): HealthCheck {
     return {
       status: 'ok',

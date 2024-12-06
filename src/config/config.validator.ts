@@ -11,26 +11,26 @@ export class EnvironmentVariables {
   @IsString()
   @IsNotEmpty()
   @Type(() => String)
-  SUPABASE_URL!: string;
+  SUPABASE_URL: string;
 
   @IsString()
   @IsNotEmpty()
   @Type(() => String)
-  SUPABASE_SERVICE_KEY!: string;
+  SUPABASE_SERVICE_KEY: string;
 
   @IsString()
   @IsNotEmpty()
   @Type(() => String)
-  REDIS_URL!: string;
+  REDIS_URL: string;
 
   @IsEnum(Environment)
   @Type(() => String)
-  NODE_ENV!: Environment;
+  NODE_ENV: Environment = Environment.Development;
 
   @IsString()
   @IsNotEmpty()
   @Type(() => String)
-  SUPABASE_JWT_SECRET!: string;
+  SUPABASE_JWT_SECRET: string;
 }
 
 export function validate(config: Record<string, unknown>) {
