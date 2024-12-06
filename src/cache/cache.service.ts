@@ -9,16 +9,20 @@ export class CacheService implements OnModuleDestroy {
   private async getClient() {
     if (this.redis) return this.redis;
     if (this.connecting) {
-      // Wait for existing connection attempt
       while (this.connecting) {
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
       return this.redis;
     }
 
+    const redisUrl = process.env.REDIS_URL;
+    if (!redisUrl) {
+      throw new Error('REDIS_URL is not defined');
+    }
+
     this.connecting = true;
     try {
-      this.redis = new Redis(process.env.REDIS_URL, {
+      this.redis = new Redis(redisUrl, {
         maxRetriesPerRequest: 1,
         connectTimeout: 500,
         enableReadyCheck: false,
