@@ -21,7 +21,10 @@
       }
     }
   ],
-  "env": {
-    "NODE_ENV": "production"
+  "functions": {
+    "src/main.ts": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
   }
 } 

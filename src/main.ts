@@ -5,7 +5,15 @@ let app;
 
 async function bootstrap() {
   if (!app) {
-    app = await NestFactory.create(AppModule, { cors: true });
+    app = await NestFactory.create(AppModule, {
+      cors: true,
+      logger: ['error', 'warn'],
+      bufferLogs: true,
+    });
+
+    const initPromises = [];
+    await Promise.all(initPromises);
+
     await app.init();
   }
 
