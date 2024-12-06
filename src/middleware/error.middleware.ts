@@ -37,4 +37,4 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message,
     });
   }
-} 
+}
