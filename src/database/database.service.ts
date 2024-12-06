@@ -1,19 +1,30 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
-export class DatabaseService {
+export class DatabaseService implements OnModuleInit {
   private readonly supabase: SupabaseClient;
 
-  constructor() {
-    this.supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_KEY,
-    );
+  constructor(private configService: ConfigService) {
+    const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
+    const supabaseKey = this.configService.get<string>('SUPABASE_SERVICE_KEY');
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Missing Supabase configuration');
+    }
+
+    // Validate URL format
+    try {
+      new URL(supabaseUrl);
+    } catch (error) {
+      throw new Error(`Invalid Supabase URL: ${supabaseUrl} ${error}`);
+    }
+
+    this.supabase = createClient(supabaseUrl, supabaseKey);
   }
 
   async onModuleInit() {
-    // Add connection error handling
     try {
       await this.supabase.from('your_table').select('*').limit(1);
       console.log('Supabase connection successful');
