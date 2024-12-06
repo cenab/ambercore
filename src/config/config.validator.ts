@@ -1,24 +1,35 @@
-import { Injectable } from '@nestjs/common';
+import { plainToClass } from 'class-transformer';
+import { IsString, IsNotEmpty, validateSync } from 'class-validator';
 
-@Injectable()
-export class ConfigValidator {
-  static validate(config: Record<string, any>): Record<string, any> {
-    const requiredEnvVars = [
-      'SUPABASE_URL',
-      'SUPABASE_SERVICE_KEY',
-      'REDIS_URL',
-    ];
+class EnvironmentVariables {
+  @IsString()
+  @IsNotEmpty()
+  SUPABASE_URL: string;
 
-    const missingEnvVars = requiredEnvVars.filter(
-      (envVar) => !process.env[envVar] && !config[envVar],
-    );
+  @IsString()
+  @IsNotEmpty()
+  SUPABASE_SERVICE_KEY: string;
 
-    if (missingEnvVars.length > 0) {
-      throw new Error(
-        `Missing required environment variables: ${missingEnvVars.join(', ')}`,
-      );
-    }
+  @IsString()
+  @IsNotEmpty()
+  REDIS_URL: string;
 
-    return config;
+  @IsString()
+  NODE_ENV: string;
+
+  @IsString()
+  @IsNotEmpty()
+  SUPABASE_JWT_SECRET: string;
+}
+
+export function validate(config: Record<string, unknown>) {
+  const validatedConfig = plainToClass(EnvironmentVariables, config);
+  const errors = validateSync(validatedConfig, {
+    skipMissingProperties: false,
+  });
+
+  if (errors.length > 0) {
+    throw new Error(errors.toString());
   }
-} 
+  return validatedConfig;
+}

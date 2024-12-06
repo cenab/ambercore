@@ -5,17 +5,13 @@ import { DatabaseModule } from './database/database.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { CacheModule } from './cache/cache.module';
 import { UsersModule } from './users/users.module';
-import { ConfigValidator } from './config/config.validator';
+import { validate } from './config/config.validator';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
+      validate,
       isGlobal: true,
-      validate: ConfigValidator.validate,
-      validationOptions: {
-        allowUnknown: true,
-        abortEarly: true,
-      },
     }),
     AuthModule,
     DatabaseModule,
