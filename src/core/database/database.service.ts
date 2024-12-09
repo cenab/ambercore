@@ -1,7 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { ConnectionManager } from '../common/connection.manager';
 
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
@@ -20,7 +19,6 @@ export class DatabaseService implements OnModuleDestroy {
   private async cleanup() {
     try {
       if (DatabaseService.pool) {
-        // Just nullify the pool since Supabase client doesn't need explicit cleanup
         DatabaseService.pool = null;
         DatabaseService.connectionCount = 0;
         this.logger.log('Database connections cleaned up');
@@ -35,7 +33,6 @@ export class DatabaseService implements OnModuleDestroy {
       if (!DatabaseService.pool) {
         const startTime = Date.now();
         
-        // Create new client with timeout
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => {
             reject(new Error('Database connection timeout'));

@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
+import { DatabaseService } from '../../core/database/database.service';
 
 @Injectable()
 export class UsersService {
   constructor(private readonly databaseService: DatabaseService) {}
 
   async findOne(id: string) {
-    const supabase = this.databaseService.getSupabaseClient();
+    const supabase = await this.databaseService.getClient();
     const { data, error } = await supabase
       .from('users')
       .select('*')

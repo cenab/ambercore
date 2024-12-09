@@ -6,7 +6,7 @@ export class AuthService {
   constructor(private readonly databaseService: DatabaseService) {}
 
   async signIn(email: string, password: string): Promise<any> {
-    const supabase = this.databaseService.getSupabaseClient();
+    const supabase = await this.databaseService.getClient();
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,

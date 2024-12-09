@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+node_modules
+dist
+coverage
+test
+README.md
+*.log
+*.test.*
+*.spec.*
+jest.*
+tsconfig.build.json 
