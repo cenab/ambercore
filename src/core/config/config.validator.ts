@@ -104,6 +104,20 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   TEST_DATABASE_URL?: string;
+
+  // Pusher Configuration
+  @IsString()
+  PUSHER_APP_ID: string;
+
+  @IsString()
+  PUSHER_KEY: string;
+
+  @IsString()
+  PUSHER_SECRET: string;
+
+  @IsString()
+  @IsIn(['mt1', 'us2', 'us3', 'eu', 'ap1', 'ap2'])
+  PUSHER_CLUSTER: string;
 }
 
 export function validate(config: Record<string, unknown>) {
