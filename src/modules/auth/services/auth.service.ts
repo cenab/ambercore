@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
-import Redis from 'ioredis';
+import { RedisService } from '../../../core/shared/services/redis.service';
 
 export interface AuthResponse {
   user: User | null;
@@ -14,20 +14,15 @@ export interface AuthResponse {
 @Injectable()
 export class AuthService {
   private supabase: SupabaseClient;
-  private redis: Redis;
   private readonly SESSION_TTL = 3600; // 1 hour in seconds
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private redisService: RedisService
+  ) {
     const supabaseUrl = this.configService.getOrThrow<string>('SUPABASE_URL');
     const supabaseKey = this.configService.getOrThrow<string>('SUPABASE_SERVICE_KEY');
     this.supabase = createClient(supabaseUrl, supabaseKey);
-    
-    // Initialize Redis with auto-reconnect
-    const redisUrl = this.configService.getOrThrow('REDIS_URL');
-    this.redis = new Redis(redisUrl, {
-      retryStrategy: (times) => Math.min(times * 50, 2000),
-      maxRetriesPerRequest: 3,
-    });
   }
 
   private getCacheKey(token: string): string {
@@ -36,7 +31,7 @@ export class AuthService {
 
   private async getFromCache(token: string): Promise<User | null> {
     try {
-      const cached = await this.redis.get(this.getCacheKey(token));
+      const cached = await this.redisService.get(this.getCacheKey(token));
       return cached ? JSON.parse(cached) : null;
     } catch {
       return null;
@@ -45,10 +40,10 @@ export class AuthService {
 
   private async setCache(token: string, user: User): Promise<void> {
     try {
-      await this.redis.setex(
+      await this.redisService.set(
         this.getCacheKey(token),
-        this.SESSION_TTL,
-        JSON.stringify(user)
+        JSON.stringify(user),
+        this.SESSION_TTL
       );
     } catch {
       // Fail silently - cache is optional
@@ -57,7 +52,7 @@ export class AuthService {
 
   private async clearCache(token: string): Promise<void> {
     try {
-      await this.redis.del(this.getCacheKey(token));
+      await this.redisService.del(this.getCacheKey(token));
     } catch {
       // Fail silently - cache is optional
     }

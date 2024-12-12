@@ -1,91 +1,29 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Redis from 'ioredis';
+import { Redis } from '@upstash/redis';
 
 @Injectable()
-export class RedisService implements OnModuleInit, OnModuleDestroy {
+export class RedisService implements OnModuleInit {
   private client: Redis;
   private readonly logger = new Logger(RedisService.name);
 
   constructor(private configService: ConfigService) {}
 
   onModuleInit() {
-    const redisUrl = this.configService.get('REDIS_URL');
-    if (!redisUrl) {
-      throw new Error('REDIS_URL is required');
-    }
-
     try {
-      const url = new URL(redisUrl);
-      const [username, password] = (url.username && url.password) 
-        ? [url.username, url.password] 
-        : ['default', url.pathname.slice(1)];
-
       this.client = new Redis({
-        host: url.hostname,
-        port: Number(url.port) || 6379,
-        username,
-        password,
-        tls: {
-          rejectUnauthorized: false,
-          servername: url.hostname
-        },
-        maxRetriesPerRequest: 3,
-        retryStrategy(times) {
-          const delay = Math.min(times * 50, 2000);
-          return delay;
-        },
-        enableReadyCheck: false,
-        stringNumbers: true,
-        enableOfflineQueue: false,
-        connectTimeout: 20000,
-        commandTimeout: 60000,
-        keepAlive: 30000,
-        noDelay: true,
-        db: 0
+        url: this.configService.getOrThrow('UPSTASH_REDIS_REST_URL'),
+        token: this.configService.getOrThrow('UPSTASH_REDIS_REST_TOKEN'),
       });
 
-      this.client.on('connect', () => {
-        this.logger.log('Redis connected');
-      });
-
-      this.client.on('error', (error) => {
-        this.logger.error(`Redis error: ${error.message}`);
-      });
-
-      this.client.on('close', () => {
-        this.logger.warn('Redis connection closed');
-      });
-
-      this.client.on('reconnecting', () => {
-        this.logger.log('Redis reconnecting...');
-      });
-
-      this.client.on('ready', () => {
-        this.logger.log('Redis ready');
-      });
-
-      this.client.on('end', () => {
-        this.logger.warn('Redis connection ended');
-      });
-
+      this.logger.log('Redis client initialized');
     } catch (error) {
       this.logger.error(`Redis initialization error: ${error.message}`);
       throw error;
     }
-
-    return Promise.resolve();
   }
 
-  async onModuleDestroy() {
-    try {
-      await this.client?.quit();
-    } catch (error) {
-      this.logger.error(`Redis disconnect error: ${error.message}`);
-    }
-  }
-
-  async get(key: string): Promise<string | null> {
+  async get(key: string): Promise<any> {
     try {
       return await this.client.get(key);
     } catch (error) {
@@ -94,10 +32,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async set(key: string, value: string, ttl?: number): Promise<boolean> {
+  async set(key: string, value: any, ttlSeconds?: number): Promise<boolean> {
     try {
-      if (ttl) {
-        await this.client.setex(key, ttl, value);
+      if (ttlSeconds) {
+        await this.client.set(key, value, { ex: ttlSeconds });
       } else {
         await this.client.set(key, value);
       }
@@ -120,14 +58,87 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   async keys(pattern: string): Promise<string[]> {
     try {
-      return await this.client.keys(pattern);
+      const keys = await this.client.keys(pattern);
+      return Array.isArray(keys) ? keys : [];
     } catch (error) {
       this.logger.error(`Redis keys error for pattern ${pattern}: ${error.message}`);
       return [];
     }
   }
 
-  isReady(): boolean {
-    return this.client?.status === 'ready';
+  async hset(key: string, value: Record<string, any>): Promise<boolean> {
+    try {
+      await this.client.hset(key, value);
+      return true;
+    } catch (error) {
+      this.logger.error(`Redis hset error for key ${key}: ${error.message}`);
+      return false;
+    }
+  }
+
+  async hget(key: string, field: string): Promise<any> {
+    try {
+      return await this.client.hget(key, field);
+    } catch (error) {
+      this.logger.error(`Redis hget error for key ${key}: ${error.message}`);
+      return null;
+    }
+  }
+
+  async zadd(key: string, score: number, member: string): Promise<boolean> {
+    try {
+      await this.client.zadd(key, { score, member });
+      return true;
+    } catch (error) {
+      this.logger.error(`Redis zadd error for key ${key}: ${error.message}`);
+      return false;
+    }
+  }
+
+  async zrange(key: string, start: number, stop: number): Promise<string[]> {
+    try {
+      return await this.client.zrange(key, start, stop);
+    } catch (error) {
+      this.logger.error(`Redis zrange error for key ${key}: ${error.message}`);
+      return [];
+    }
+  }
+
+  async lpush(key: string, value: string): Promise<boolean> {
+    try {
+      await this.client.lpush(key, value);
+      return true;
+    } catch (error) {
+      this.logger.error(`Redis lpush error for key ${key}: ${error.message}`);
+      return false;
+    }
+  }
+
+  async lrange(key: string, start: number, stop: number): Promise<string[]> {
+    try {
+      return await this.client.lrange(key, start, stop);
+    } catch (error) {
+      this.logger.error(`Redis lrange error for key ${key}: ${error.message}`);
+      return [];
+    }
+  }
+
+  async sadd(key: string, member: string): Promise<boolean> {
+    try {
+      await this.client.sadd(key, member);
+      return true;
+    } catch (error) {
+      this.logger.error(`Redis sadd error for key ${key}: ${error.message}`);
+      return false;
+    }
+  }
+
+  async spop(key: string, count: number = 1): Promise<string | string[] | null> {
+    try {
+      return await this.client.spop(key, count);
+    } catch (error) {
+      this.logger.error(`Redis spop error for key ${key}: ${error.message}`);
+      return null;
+    }
   }
 } 

@@ -1,142 +1,124 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import WebSocket from 'ws';
-import { WebSocketConfig } from './websocket.types';
+import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { WebSocket, WebSocketServer } from 'ws';
 import { MetricsService } from '../../../core/metrics/metrics.service';
+import { RedisService } from '../../../core/shared/services/redis.service';
+
+interface WebSocketClient extends WebSocket {
+  id: string;
+  isAlive: boolean;
+}
 
 @Injectable()
-export class WebSocketService {
-  protected readonly logger = new Logger(WebSocketService.name);
-  private readonly clients: Set<WebSocket> = new Set();
-  private readonly config: WebSocketConfig;
+export class WebSocketService implements OnModuleInit, OnModuleDestroy {
+  private server: WebSocketServer;
+  private readonly clients = new Map<string, WebSocketClient>();
+  private heartbeatInterval: NodeJS.Timeout;
 
   constructor(
-    private readonly configService: ConfigService,
     private readonly metricsService: MetricsService,
-  ) {
-    this.config = {
-      heartbeatInterval: configService.get('WS_HEARTBEAT_INTERVAL') || 30000,
-      reconnectInterval: configService.get('WS_RECONNECT_INTERVAL') || 5000,
-      maxRetries: configService.get('WS_MAX_RETRIES') || 5,
-    };
+    private readonly redisService: RedisService,
+  ) {}
+
+  onModuleInit() {
+    this.server = new WebSocketServer({ port: 8080 });
+    this.setupWebSocketServer();
+    this.startHeartbeat();
   }
 
-  async connect(url: string): Promise<WebSocket> {
-    try {
-      const ws = new WebSocket(url);
-      this.setupWebSocketHandlers(ws);
-      this.clients.add(ws);
-      this.metricsService.setActiveConnections('websocket', this.clients.size);
-      return ws;
-    } catch (error) {
-      this.logger.error(`Failed to connect to WebSocket at ${url}:`, error);
-      throw error;
-    }
+  onModuleDestroy() {
+    this.stopHeartbeat();
+    this.server.close();
   }
 
-  private setupWebSocketHandlers(ws: WebSocket): void {
-    ws.on('open', () => {
-      this.logger.log('WebSocket connection established');
-      this.startHeartbeat(ws);
-    });
+  private setupWebSocketServer() {
+    this.server.on('connection', (ws: WebSocketClient) => {
+      ws.id = Math.random().toString(36).substring(7);
+      ws.isAlive = true;
+      this.clients.set(ws.id, ws);
 
-    ws.on('close', () => {
-      this.logger.log('WebSocket connection closed');
-      this.clients.delete(ws);
-      this.metricsService.setActiveConnections('websocket', this.clients.size);
-    });
+      this.recordMetrics();
 
-    ws.on('error', (error) => {
-      this.logger.error('WebSocket error:', error);
-      this.metricsService.recordHttpError('WS', 'connection', error.message);
-    });
-
-    ws.on('ping', () => {
-      try {
-        ws.pong();
-      } catch (error) {
-        this.logger.error('Failed to send pong:', error);
-      }
-    });
-  }
-
-  private startHeartbeat(ws: WebSocket): void {
-    const interval = setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) {
-        try {
-          ws.ping();
-        } catch (error) {
-          this.logger.error('Failed to send ping:', error);
-          clearInterval(interval);
-        }
-      } else {
-        clearInterval(interval);
-      }
-    }, this.config.heartbeatInterval);
-
-    ws.on('close', () => clearInterval(interval));
-  }
-
-  async send(ws: WebSocket, data: string | Buffer): Promise<void> {
-    try {
-      if (ws.readyState === WebSocket.OPEN) {
-        await new Promise<void>((resolve, reject) => {
-          ws.send(data, (error) => {
-            if (error) {
-              this.logger.error('Failed to send message:', error);
-              reject(error);
-            } else {
-              resolve();
-            }
-          });
-        });
-      } else {
-        throw new Error('WebSocket is not open');
-      }
-    } catch (error) {
-      this.logger.error('Error sending message:', error);
-      throw error;
-    }
-  }
-
-  async broadcast(data: string | Buffer): Promise<void> {
-    const sendPromises = Array.from(this.clients)
-      .filter((client) => client.readyState === WebSocket.OPEN)
-      .map((client) => this.send(client, data));
-
-    try {
-      await Promise.all(sendPromises);
-    } catch (error) {
-      this.logger.error('Error broadcasting message:', error);
-      throw error;
-    }
-  }
-
-  disconnect(ws: WebSocket): void {
-    try {
-      ws.close();
-      this.clients.delete(ws);
-      this.metricsService.setActiveConnections('websocket', this.clients.size);
-    } catch (error) {
-      this.logger.error('Error disconnecting WebSocket:', error);
-      throw error;
-    }
-  }
-
-  disconnectAll(): void {
-    try {
-      this.clients.forEach((client) => {
-        client.close();
+      ws.on('pong', () => {
+        ws.isAlive = true;
       });
-      this.clients.clear();
-      this.metricsService.setActiveConnections('websocket', 0);
+
+      ws.on('message', (message: string) => {
+        this.handleMessage(ws, message);
+      });
+
+      ws.on('error', (error: Error) => {
+        console.error(`WebSocket error for client ${ws.id}:`, error);
+        this.recordError('connection_error');
+      });
+
+      ws.on('close', () => {
+        this.clients.delete(ws.id);
+        this.recordMetrics();
+      });
+    });
+  }
+
+  private startHeartbeat() {
+    this.heartbeatInterval = setInterval(() => {
+      this.server.clients.forEach((ws: WebSocketClient) => {
+        if (!ws.isAlive) {
+          this.clients.delete(ws.id);
+          return ws.terminate();
+        }
+
+        ws.isAlive = false;
+        ws.ping();
+      });
+
+      this.recordMetrics();
+    }, 30000);
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+    }
+    this.recordMetrics();
+  }
+
+  private async handleMessage(ws: WebSocketClient, message: string) {
+    try {
+      const data = JSON.parse(message);
+      // Handle different message types
+      switch (data.type) {
+        case 'ping':
+          ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+          break;
+        default:
+          console.warn(`Unknown message type: ${data.type}`);
+      }
     } catch (error) {
-      this.logger.error('Error disconnecting all WebSockets:', error);
-      throw error;
+      console.error('Error handling message:', error);
+      this.recordError('message_error');
     }
   }
 
-  getActiveConnections(): number {
-    return this.clients.size;
+  private async recordMetrics() {
+    await this.metricsService.recordMetric({
+      name: 'websocket_connections',
+      value: this.clients.size,
+      labels: { type: 'active' }
+    });
+  }
+
+  private async recordError(type: string) {
+    await this.metricsService.recordMetric({
+      name: 'websocket_errors',
+      value: 1,
+      labels: { type }
+    });
+  }
+
+  broadcast(message: string) {
+    this.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
   }
 } 

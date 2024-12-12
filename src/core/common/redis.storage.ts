@@ -1,123 +1,125 @@
-import { Logger } from '@nestjs/common';
-import { CacheService } from '../cache/cache.service';
+import { Injectable } from '@nestjs/common';
+import { RedisService } from '../shared/services/redis.service';
 
-export abstract class RedisStorage {
-  protected readonly logger: Logger;
+@Injectable()
+export abstract class RedisStorage<T> {
+  constructor(protected readonly redisService: RedisService) {}
 
-  constructor(protected readonly cacheService: CacheService) {
-    this.logger = new Logger(this.constructor.name);
-  }
-
-  protected async get<T>(key: string): Promise<T | null> {
+  protected async get(key: string): Promise<T | null> {
     try {
-      const value = await this.cacheService.get(key);
+      const value = await this.redisService.get(key);
       return value ? JSON.parse(value) : null;
-    } catch (error) {
-      this.logger.error(`Failed to get value for key ${key}:`, error);
+    } catch {
       return null;
     }
   }
 
-  protected async set<T>(key: string, value: T, ttl?: number): Promise<void> {
+  protected async set(
+    key: string,
+    value: T,
+    ttl?: number
+  ): Promise<boolean> {
     try {
-      await this.cacheService.set(
+      return await this.redisService.set(
         key,
         JSON.stringify(value),
-        ttl,
+        ttl
       );
-    } catch (error) {
-      this.logger.error(`Failed to set value for key ${key}:`, error);
-      throw error;
+    } catch {
+      return false;
     }
   }
 
-  protected async delete(key: string): Promise<void> {
+  protected async delete(key: string): Promise<boolean> {
     try {
-      await this.cacheService.del(key);
-    } catch (error) {
-      this.logger.error(`Failed to delete key ${key}:`, error);
-      throw error;
+      return await this.redisService.del(key);
+    } catch {
+      return false;
     }
   }
 
-  protected async list<T>(pattern: string): Promise<T[]> {
+  protected async getAll(pattern: string): Promise<T[]> {
     try {
-      const keys = await this.cacheService.keys(pattern);
-      if (!keys.length) return [];
+      const keys = await this.redisService.keys(pattern);
+      if (keys.length === 0) return [];
 
-      const values = await this.cacheService.mget(...keys);
+      const values = await Promise.all(
+        keys.map(key => this.redisService.get(key))
+      );
+
       return values
-        .filter((value): value is string => value !== null)
+        .filter((value: unknown): value is string => value !== null)
         .map(value => JSON.parse(value));
-    } catch (error) {
-      this.logger.error(`Failed to list keys with pattern ${pattern}:`, error);
+    } catch {
       return [];
     }
   }
 
   protected async exists(key: string): Promise<boolean> {
     try {
-      return await this.cacheService.exists(key);
-    } catch (error) {
-      this.logger.error(`Failed to check existence of key ${key}:`, error);
+      const value = await this.redisService.get(key);
+      return value !== null;
+    } catch {
       return false;
     }
   }
 
-  protected async publish(channel: string, message: any): Promise<void> {
+  protected async publish(
+    channel: string,
+    message: string
+  ): Promise<boolean> {
     try {
-      await this.cacheService.publish(
-        channel,
-        typeof message === 'string' ? message : JSON.stringify(message),
-      );
-    } catch (error) {
-      this.logger.error(`Failed to publish message to channel ${channel}:`, error);
-      throw error;
+      await this.redisService.lpush(channel, message);
+      return true;
+    } catch {
+      return false;
     }
   }
 
-  protected async subscribe(channel: string, callback: (message: string) => void): Promise<void> {
-    try {
-      await this.cacheService.subscribe(channel, callback);
-    } catch (error) {
-      this.logger.error(`Failed to subscribe to channel ${channel}:`, error);
-      throw error;
-    }
+  protected async subscribe(
+    channel: string,
+    callback: (message: string) => void
+  ): Promise<void> {
+    // Note: For real-time subscriptions, consider using Pusher instead
+    // This is a basic implementation using polling
+    setInterval(async () => {
+      const messages = await this.redisService.lrange(channel, 0, -1);
+      messages.forEach(callback);
+    }, 1000);
   }
 
   protected async unsubscribe(channel: string): Promise<void> {
+    // Cleanup if needed
+  }
+
+  protected async increment(
+    key: string,
+    value: number = 1
+  ): Promise<number | null> {
     try {
-      await this.cacheService.unsubscribe(channel);
-    } catch (error) {
-      this.logger.error(`Failed to unsubscribe from channel ${channel}:`, error);
-      throw error;
+      const current = await this.redisService.get(key);
+      const newValue = (parseInt(current as string || '0', 10) || 0) + value;
+      await this.redisService.set(key, newValue.toString());
+      return newValue;
+    } catch {
+      return null;
     }
   }
 
-  protected async increment(key: string, value = 1): Promise<number> {
-    try {
-      return await this.cacheService.incr(key, value);
-    } catch (error) {
-      this.logger.error(`Failed to increment key ${key}:`, error);
-      throw error;
-    }
+  protected async decrement(
+    key: string,
+    value: number = 1
+  ): Promise<number | null> {
+    return this.increment(key, -value);
   }
 
-  protected async decrement(key: string, value = 1): Promise<number> {
+  protected async expire(key: string, seconds: number): Promise<boolean> {
     try {
-      return await this.cacheService.decr(key, value);
-    } catch (error) {
-      this.logger.error(`Failed to decrement key ${key}:`, error);
-      throw error;
-    }
-  }
-
-  protected async expire(key: string, seconds: number): Promise<void> {
-    try {
-      await this.cacheService.expire(key, seconds);
-    } catch (error) {
-      this.logger.error(`Failed to set expiry for key ${key}:`, error);
-      throw error;
+      const value = await this.redisService.get(key);
+      if (value === null) return false;
+      return await this.redisService.set(key, value, seconds);
+    } catch {
+      return false;
     }
   }
 } 

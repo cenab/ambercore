@@ -57,14 +57,16 @@ export class MessagingService {
     const pattern = `message:*`;
     const keys = await this.redisService.keys(pattern);
     const messages = await Promise.all(
-      keys.slice(-limit).map(key => this.redisService.get(key))
+      keys.slice(-limit).map((key: string) => this.redisService.get(key))
     );
 
     return messages
-      .filter((msg): msg is string => msg !== null)
-      .map(msg => JSON.parse(msg))
-      .filter(msg => msg.channel === channel)
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      .filter((msg: unknown): msg is string => msg !== null)
+      .map((msg: string) => JSON.parse(msg))
+      .filter((msg: Message) => msg.channel === channel)
+      .sort((a: Message, b: Message) => 
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
   }
 
   async getChannel(channel: string) {

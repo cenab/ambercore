@@ -93,7 +93,7 @@ export class PusherService implements OnModuleInit {
     const cached = await this.redisService.keys('pusher:channel:*');
     if (cached.length > 0) {
       const channels = await Promise.all(
-        cached.map(async key => {
+        cached.map(async (key: string) => {
           const info = await this.redisService.get(key);
           return {
             name: key.replace('pusher:channel:', ''),
@@ -101,7 +101,7 @@ export class PusherService implements OnModuleInit {
           };
         })
       );
-      return channels.filter(ch => ch.info !== null);
+      return channels.filter((ch: ChannelInfo) => ch.info !== null);
     }
 
     try {
