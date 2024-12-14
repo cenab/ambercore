@@ -13,29 +13,8 @@
       "continue": false
     },
     {
-      "src": "/api/(.*)",
-      "dest": "dist/main.js"
-    },
-    {
-      "src": "/health",
-      "dest": "dist/main.js"
-    },
-    {
-      "src": "/auth/(.*)",
-      "dest": "dist/main.js"
-    },
-    {
-      "src": "/chat/(.*)",
-      "dest": "dist/main.js"
-    },
-    {
-      "src": "/messaging/(.*)",
-      "dest": "dist/main.js"
-    },
-    {
       "src": "/(.*)",
-      "dest": "dist/main.js",
-      "status": 404
+      "dest": "dist/main.js"
     }
   ]
 }
