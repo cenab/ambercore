@@ -2,28 +2,40 @@
   "version": 2,
   "builds": [
     {
-      "src": "src/app/serverless.ts",
+      "src": "dist/main.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
+      "src": "/favicon.(ico|png)",
+      "status": 204,
+      "continue": false
+    },
+    {
       "src": "/api/(.*)",
-      "dest": "src/app/serverless.ts",
-      "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+      "dest": "dist/main.js"
+    },
+    {
+      "src": "/health",
+      "dest": "dist/main.js"
+    },
+    {
+      "src": "/auth/(.*)",
+      "dest": "dist/main.js"
+    },
+    {
+      "src": "/chat/(.*)",
+      "dest": "dist/main.js"
+    },
+    {
+      "src": "/messaging/(.*)",
+      "dest": "dist/main.js"
     },
     {
       "src": "/(.*)",
-      "dest": "src/app/serverless.ts",
-      "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+      "dest": "dist/main.js",
+      "status": 404
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  },
-  "build": {
-    "env": {
-      "NODE_ENV": "production"
-    }
-  }
+  ]
 }

@@ -1,6 +1,5 @@
-import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
+import { Controller, Get, All, HttpStatus } from '@nestjs/common';
 import { AppService } from './app.service';
-import { Response } from 'express';
 
 @Controller()
 export class AppController {
@@ -11,15 +10,13 @@ export class AppController {
     return this.appService.getHello();
   }
 
-  @Get('favicon.ico')
-  getFavicon(@Res() res: Response) {
-    // Return 204 No Content if you don't have a favicon
-    res.status(HttpStatus.NO_CONTENT).send();
-  }
-
-  @Get('favicon.png')
-  getFaviconPng(@Res() res: Response) {
-    // Return 204 No Content if you don't have a favicon
-    res.status(HttpStatus.NO_CONTENT).send();
+  @All('*')
+  handleNotFound() {
+    return {
+      statusCode: HttpStatus.NOT_FOUND,
+      message: 'The requested path is not available',
+      error: 'Not Found',
+      timestamp: new Date().toISOString()
+    };
   }
 }
